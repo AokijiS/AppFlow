@@ -1,4 +1,4 @@
-const CACHE_NAME = 'morning-dashboard-v2';
+const CACHE_NAME = 'morning-dashboard-v3';
 const ASSETS = [
   './index.html',
   './manifest.json',
@@ -25,17 +25,28 @@ self.addEventListener('fetch', event => {
 });
 
 self.addEventListener('message', event => {
-  if (!event.data || event.data.type !== 'SCHEDULE_NOTIFICATION') return;
-  const { title, body, delay = 0, tag = 'morning', icon, badge } = event.data;
-  setTimeout(() => {
-    self.registration.showNotification(title, {
-      body,
-      tag,
-      icon,
-      badge,
-      data: { url: './index.html' }
+  if (!event.data) return;
+  const { type } = event.data;
+
+  if (type === 'SCHEDULE_NOTIFICATION') {
+    const { title, body, delay = 0, tag = 'morning', icon, badge } = event.data;
+    setTimeout(() => {
+      self.registration.showNotification(title, {
+        body,
+        tag,
+        icon: icon || './assets/icon-192.png',
+        badge: badge || './assets/icon-192.png',
+        data: { url: './index.html' }
+      });
+    }, delay);
+  }
+
+  if (type === 'CANCEL_NOTIFICATION') {
+    const { tag } = event.data;
+    self.registration.getNotifications({ tag }).then(notifications => {
+      notifications.forEach(n => n.close());
     });
-  }, delay);
+  }
 });
 
 self.addEventListener('notificationclick', event => {

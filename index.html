@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b1020" />
+  <meta name="theme-color" content="#07111f" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Morning" />
@@ -35,15 +35,17 @@
       --radius-sm: 18px;
       --safe-top: max(16px, env(safe-area-inset-top));
       --safe-right: max(16px, env(safe-area-inset-right));
-      --safe-bottom: max(16px, env(safe-area-inset-bottom));
+      --safe-bottom: max(24px, env(safe-area-inset-bottom));
       --safe-left: max(16px, env(safe-area-inset-left));
       --spring: cubic-bezier(.2,.9,.2,1.05);
     }
     * { box-sizing: border-box; }
-    html, body { margin: 0; min-height: 100%; }
+    html { margin: 0; min-height: 100%; }
     body {
+      margin: 0;
       font-family: Inter, system-ui, sans-serif;
       color: var(--text);
+      min-height: 100dvh;
       background:
         radial-gradient(circle at 15% 20%, rgba(84,141,255,0.35), transparent 28%),
         radial-gradient(circle at 85% 15%, rgba(114,240,223,0.20), transparent 25%),
@@ -56,16 +58,25 @@
       content: "";
       position: fixed;
       inset: 0;
-      backdrop-filter: blur(2px);
+      background:
+        radial-gradient(circle at 15% 20%, rgba(84,141,255,0.35), transparent 28%),
+        radial-gradient(circle at 85% 15%, rgba(114,240,223,0.20), transparent 25%),
+        radial-gradient(circle at 75% 80%, rgba(255,118,200,0.18), transparent 25%),
+        linear-gradient(180deg, var(--bg-2), var(--bg-1));
+      z-index: -1;
       pointer-events: none;
     }
+
+    /* ── PORTRAIT LAYOUT ── */
     .app {
+      display: none;
       min-height: 100dvh;
       padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
-      display: grid;
       gap: 14px;
-      align-content: start;
+      flex-direction: column;
     }
+    .app.visible { display: flex; }
+
     .glass {
       background: linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.08));
       border: 1px solid var(--line);
@@ -80,8 +91,9 @@
       gap: 10px;
       padding: 12px;
       position: sticky;
-      top: 0;
+      top: var(--safe-top, 16px);
       z-index: 10;
+      flex-shrink: 0;
     }
     .logo {
       width: 42px; height: 42px; border-radius: 14px;
@@ -93,13 +105,25 @@
     .logo svg { width: 24px; height: 24px; }
     .grow { flex: 1; min-width: 0; }
     .eyebrow { font-size: 12px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+    .title-bar { display: flex; align-items: center; gap: 8px; }
     .title { font-size: 18px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .task-badge {
+      min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+      background: linear-gradient(135deg, var(--blue), var(--teal));
+      color: #07111f; font-size: 12px; font-weight: 800;
+      display: none; place-items: center;
+    }
+    .task-badge.visible { display: grid; }
     .icon-btn {
       width: 44px; height: 44px; border-radius: 14px; border: 1px solid var(--line);
       background: rgba(255,255,255,0.08); color: var(--text);
-      display: grid; place-items: center;
+      display: grid; place-items: center; font-size: 18px;
+      cursor: pointer; transition: background .15s;
     }
-    .grid {
+    .icon-btn:active { background: rgba(255,255,255,0.16); }
+
+    /* Main grid */
+    .main-grid {
       display: grid;
       grid-template-columns: 1fr;
       gap: 14px;
@@ -123,6 +147,8 @@
     }
     .card { padding: 18px; display: grid; gap: 12px; animation: enter .65s var(--spring) both; }
     .card h2 { margin: 0; font-size: 13px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+
+    /* Weather */
     .weather-main { display: flex; align-items: center; gap: 14px; }
     .temp { font-size: 46px; font-weight: 800; letter-spacing: -0.05em; }
     .sub { color: var(--muted); font-size: 14px; }
@@ -132,61 +158,256 @@
     }
     .mini .k { font-size: 12px; color: var(--faint); }
     .mini .v { margin-top: 4px; font-size: 15px; font-weight: 700; }
+
+    /* Tasks */
     .list { display: grid; gap: 10px; }
     .task {
       display: flex; align-items: center; gap: 12px;
       padding: 12px 14px; border-radius: 18px; border: 1px solid rgba(255,255,255,.10);
       background: rgba(255,255,255,.06);
+      position: relative; overflow: hidden;
+      transition: transform .2s var(--spring);
+      touch-action: pan-y;
     }
-    .task button {
-      width: 24px; height: 24px; border-radius: 999px; border: 2px solid rgba(255,255,255,.25);
+    .task-check-btn {
+      width: 28px; height: 28px; border-radius: 999px; border: 2px solid rgba(255,255,255,.25);
       background: transparent; color: transparent; flex: 0 0 auto;
+      cursor: pointer; transition: all .2s;
+      min-width: 28px; min-height: 28px;
     }
-    .task.done button { background: linear-gradient(135deg, var(--teal), var(--blue)); border-color: transparent; color: #06111e; }
-    .task .txt { flex: 1; }
+    .task.done .task-check-btn {
+      background: linear-gradient(135deg, var(--teal), var(--blue));
+      border-color: transparent; color: #06111e; font-size: 13px;
+    }
+    .task .txt { flex: 1; font-size: 15px; transition: all .2s; }
     .task.done .txt { color: var(--faint); text-decoration: line-through; }
-    .task .tag { font-size: 12px; color: var(--muted); }
-    .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .focus-ring { width: 140px; height: 140px; margin: 0 auto; position: relative; }
+    .task-del-btn {
+      width: 32px; height: 32px; border-radius: 999px; border: none;
+      background: rgba(255,107,122,0.2); color: var(--danger);
+      display: grid; place-items: center; cursor: pointer;
+      opacity: 0; transition: opacity .2s;
+      font-size: 16px; flex-shrink: 0;
+    }
+    .task:hover .task-del-btn { opacity: 1; }
+    .task.swipe-reveal .task-del-btn { opacity: 1; }
+
+    /* Task input */
+    .task-input-row {
+      display: flex; gap: 8px; align-items: center;
+    }
+    .task-input {
+      flex: 1; padding: 12px 14px; border-radius: 16px;
+      border: 1px solid var(--line); background: rgba(255,255,255,.08);
+      color: var(--text); font-size: 15px; font-family: inherit;
+      outline: none; transition: border-color .2s;
+      min-height: 44px;
+    }
+    .task-input:focus { border-color: var(--blue); }
+    .task-input::placeholder { color: var(--faint); }
+    .task-add-btn {
+      width: 44px; height: 44px; border-radius: 14px;
+      background: linear-gradient(135deg, rgba(101,167,255,.9), rgba(114,240,223,.9));
+      border: none; color: #07111f; font-size: 22px; font-weight: 700;
+      display: grid; place-items: center; cursor: pointer;
+      flex-shrink: 0; transition: transform .15s;
+    }
+    .task-add-btn:active { transform: scale(.92); }
+    .task-show-all-btn {
+      padding: 10px; border-radius: 14px; border: 1px solid var(--line);
+      background: rgba(255,255,255,.06); color: var(--muted); font-size: 13px;
+      cursor: pointer; text-align: center;
+    }
+
+    /* Pomodoro */
+    .focus-ring { width: 150px; height: 150px; margin: 0 auto; position: relative; }
     .focus-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
     .focus-center {
       position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
     }
-    .focus-time { font-size: 32px; font-weight: 800; letter-spacing: -0.04em; }
+    .focus-time { font-size: 34px; font-weight: 800; letter-spacing: -0.04em; }
     .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .btn {
       min-height: 46px; border-radius: 16px; border: 1px solid var(--line); color: var(--text);
-      background: rgba(255,255,255,0.08); font-weight: 700;
+      background: rgba(255,255,255,0.08); font-weight: 700; cursor: pointer;
+      font-family: inherit; font-size: 14px; transition: background .15s, transform .1s;
     }
+    .btn:active { transform: scale(.97); }
     .btn.primary { background: linear-gradient(135deg, rgba(101,167,255,.9), rgba(114,240,223,.9)); color: #07111f; border-color: transparent; }
+
+    /* Pomodoro presets */
+    .preset-btns {
+      display: flex; gap: 8px; flex-wrap: wrap;
+    }
+    .preset-btn {
+      padding: 8px 14px; border-radius: 12px; border: 1px solid var(--line);
+      background: rgba(255,255,255,0.08); color: var(--muted); font-size: 13px;
+      font-weight: 600; cursor: pointer; font-family: inherit;
+      transition: all .2s; min-height: 44px;
+    }
+    .preset-btn.active {
+      background: linear-gradient(135deg, rgba(101,167,255,.9), rgba(114,240,223,.9));
+      color: #07111f; border-color: transparent;
+    }
+    .custom-dur-row {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .custom-dur-input {
+      width: 70px; padding: 8px 10px; border-radius: 12px;
+      border: 1px solid var(--line); background: rgba(255,255,255,.08);
+      color: var(--text); font-size: 14px; font-family: inherit;
+      outline: none; text-align: center; min-height: 44px;
+    }
+    .custom-dur-input:focus { border-color: var(--blue); }
+    .custom-dur-label { color: var(--muted); font-size: 13px; }
+
+    /* Notifications */
     .notif-status {
       padding: 10px 12px; border-radius: 14px; font-size: 13px;
       background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.10); color: var(--muted);
     }
-    .news-item { padding: 12px 14px; border-radius: 18px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.10); }
-    .news-item a { color: var(--text); text-decoration: none; font-weight: 600; }
-    .news-item small { color: var(--muted); display: block; margin-top: 4px; }
-    .install-banner {
-      display: none; padding: 12px 14px; border-radius: 18px;
-      background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.10);
-      font-size: 14px; color: var(--muted);
+    .scheduled-list { display: grid; gap: 8px; }
+    .scheduled-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 14px;
+      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08);
+      font-size: 13px;
     }
+    .scheduled-item .sched-info { flex: 1; }
+    .scheduled-item .sched-title { font-weight: 600; }
+    .scheduled-item .sched-time { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .sched-cancel {
+      padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line);
+      background: rgba(255,255,255,.06); color: var(--danger);
+      font-size: 12px; cursor: pointer; white-space: nowrap; font-family: inherit;
+    }
+
+    /* News */
+    .news-item { padding: 12px 14px; border-radius: 18px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.10); }
+    .news-item a { color: var(--text); text-decoration: none; font-weight: 600; font-size: 14px; }
+    .news-item small { color: var(--muted); display: block; margin-top: 4px; font-size: 12px; }
+
+    /* Calendar */
     .calendar {
-      display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
       text-align: center; font-size: 13px;
     }
-    .calendar .dayname { color: var(--faint); font-size: 11px; text-transform: uppercase; }
+    .calendar .dayname { color: var(--faint); font-size: 11px; text-transform: uppercase; padding: 4px 0; }
     .calendar .day {
       aspect-ratio: 1; border-radius: 999px; display: grid; place-items: center;
       background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
     }
     .calendar .today { background: linear-gradient(135deg, rgba(101,167,255,.9), rgba(114,240,223,.9)); color: #07111f; border-color: transparent; font-weight: 800; }
+
+    /* Install banner */
+    .install-banner {
+      display: none; padding: 12px 14px; border-radius: 18px;
+      background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.10);
+      font-size: 14px; color: var(--muted);
+    }
     .footer-note { text-align: center; color: var(--faint); font-size: 12px; padding-bottom: 8px; }
-    @media (min-width: 860px) {
-      .grid { grid-template-columns: 1.25fr .9fr; align-items: start; }
+
+    /* Slide-in animation for new tasks */
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-20px) scale(.96); }
+      to { opacity: 1; transform: translateX(0) scale(1); }
+    }
+    .task.new { animation: slideIn .35s var(--spring) both; }
+
+    /* ── BREAKPOINTS PORTRAIT ── */
+    @media (min-width: 768px) {
+      .main-grid { grid-template-columns: 1.25fr .9fr; align-items: start; }
       .widgets { grid-template-columns: repeat(2, 1fr); }
       .span-2 { grid-column: span 2; }
     }
+    @media (min-width: 1024px) {
+      .app { padding-inline: max(32px, env(safe-area-inset-left)); }
+      .widgets { grid-template-columns: repeat(2, 1fr); }
+      .main-grid { grid-template-columns: 1.4fr 1fr; gap: 18px; }
+    }
+    @media (min-width: 1440px) {
+      .widgets { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    /* ── LANDSCAPE CAROUSEL ── */
+    .carousel-view {
+      display: none;
+      position: fixed; inset: 0;
+      width: 100vw; height: 100dvh;
+      overflow: hidden;
+      z-index: 100;
+    }
+    .carousel-track {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      overflow-x: scroll;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    .carousel-track::-webkit-scrollbar { display: none; }
+    .carousel-slide {
+      flex: 0 0 100vw;
+      height: 100%;
+      scroll-snap-align: start;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px var(--safe-right) 40px var(--safe-left);
+      text-align: center;
+      gap: 12px;
+    }
+    .slide-label {
+      font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--faint); font-weight: 600;
+    }
+    .slide-time { font-size: clamp(40px, 14vw, 72px); font-weight: 800; letter-spacing: -0.06em; line-height: 1; }
+    .slide-date { font-size: 14px; color: var(--muted); }
+    .slide-weather { font-size: 18px; font-weight: 700; }
+    .slide-tasks { width: 100%; max-width: 380px; text-align: left; display: grid; gap: 6px; }
+    .slide-task { padding: 10px 14px; border-radius: 14px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.10); font-size: 14px; }
+    .slide-task.done { color: var(--faint); text-decoration: line-through; }
+    .slide-focus-time { font-size: clamp(50px, 15vw, 80px); font-weight: 800; letter-spacing: -0.06em; }
+    .slide-news-item { max-width: 500px; font-size: 15px; font-weight: 600; color: var(--text); }
+    .slide-news-src { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .slide-notif { max-width: 400px; }
+    .slide-notif-title { font-size: 16px; font-weight: 700; }
+    .slide-notif-time { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+    /* Carousel dots */
+    .carousel-dots {
+      position: fixed;
+      bottom: max(12px, env(safe-area-inset-bottom));
+      left: 0; right: 0;
+      display: none;
+      justify-content: center;
+      gap: 6px;
+      z-index: 101;
+    }
+    .dot {
+      width: 6px; height: 6px; border-radius: 999px;
+      background: rgba(255,255,255,.3);
+      transition: all .3s var(--spring);
+    }
+    .dot.active {
+      width: 18px;
+      background: white;
+    }
+
+    /* Landscape activation */
+    @media (max-height: 500px) and (orientation: landscape) {
+      .app { display: none !important; }
+      .carousel-view { display: block; }
+      .carousel-dots { display: flex; }
+    }
+    /* Portrait activation */
+    @media not all and ((max-height: 500px) and (orientation: landscape)) {
+      .app { display: flex; }
+      .carousel-view { display: none; }
+      .carousel-dots { display: none; }
+    }
+
     @keyframes enter {
       from { opacity: 0; transform: translateY(18px) scale(.98); }
       to { opacity: 1; transform: translateY(0) scale(1); }
@@ -197,356 +418,896 @@
   </style>
 </head>
 <body>
-  <div class="app">
-    <header class="topbar glass">
-      <div class="logo" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="4" fill="#ffd36d"></circle>
-          <g stroke="#72f0df" stroke-width="1.7" stroke-linecap="round">
-            <path d="M12 2.8v2.6"/><path d="M12 18.6v2.6"/><path d="M2.8 12h2.6"/><path d="M18.6 12h2.6"/>
-            <path d="M5.5 5.5l1.9 1.9"/><path d="M16.6 16.6l1.9 1.9"/><path d="M18.5 5.5l-1.9 1.9"/><path d="M7.4 16.6l-1.9 1.9"/>
-          </g>
-        </svg>
-      </div>
-      <div class="grow">
-        <div class="eyebrow">Morning Dashboard</div>
-        <div class="title">Compatible iPhone + notifications</div>
-      </div>
-      <button class="icon-btn" id="refreshBtn" aria-label="Rafraîchir">↻</button>
-    </header>
 
-    <div class="install-banner glass" id="iosHint">
-      Sur iPhone : ouvre ce site dans Safari, puis <strong>Partager → Sur l'écran d'accueil</strong> pour l'utiliser comme une vraie app et activer les notifications locales.
+<!-- ══ PORTRAIT APP ══ -->
+<div class="app" id="portraitApp">
+  <header class="topbar glass">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="4" fill="#ffd36d"></circle>
+        <g stroke="#72f0df" stroke-width="1.7" stroke-linecap="round">
+          <path d="M12 2.8v2.6"/><path d="M12 18.6v2.6"/>
+          <path d="M2.8 12h2.6"/><path d="M18.6 12h2.6"/>
+          <path d="M5.5 5.5l1.9 1.9"/><path d="M16.6 16.6l1.9 1.9"/>
+          <path d="M18.5 5.5l-1.9 1.9"/><path d="M7.4 16.6l-1.9 1.9"/>
+        </g>
+      </svg>
     </div>
-
-    <div class="grid">
-      <section class="hero glass">
-        <div class="time" id="time">00:00</div>
-        <div class="date" id="date">—</div>
-        <div class="chips">
-          <div class="chip" id="locChip">📍 Roubaix</div>
-          <div class="chip" id="tempChip">☁️ --°C</div>
-          <div class="chip" id="notifChip">🔔 Notifications désactivées</div>
-        </div>
-      </section>
-
-      <section class="card glass">
-        <h2>Notifications</h2>
-        <div class="notif-status" id="notifStatus">Appuie sur le bouton pour autoriser les notifications sur iPhone, iPad ou desktop.</div>
-        <div class="btns">
-          <button class="btn primary" id="enableNotifBtn">Activer</button>
-          <button class="btn" id="testNotifBtn">Test 5 sec</button>
-        </div>
-        <div class="btns">
-          <button class="btn" id="morningNotifBtn">Rappel matin 30 sec</button>
-          <button class="btn" id="focusNotifBtn">Fin Pomodoro</button>
-        </div>
-      </section>
+    <div class="grow">
+      <div class="eyebrow">Morning Dashboard</div>
+      <div class="title-bar">
+        <div class="title" id="headerTitle">Bonjour !</div>
+        <div class="task-badge" id="taskBadge">0</div>
+      </div>
     </div>
+    <button class="icon-btn" id="refreshBtn" aria-label="Rafraîchir">↻</button>
+  </header>
 
-    <section class="widgets">
-      <article class="card glass">
-        <h2>Météo réelle</h2>
-        <div class="weather-main">
-          <div style="font-size:52px" id="weatherEmoji">☁️</div>
-          <div>
-            <div class="temp"><span id="weatherTemp">--</span>°</div>
-            <div class="sub" id="weatherText">Chargement météo…</div>
-          </div>
-        </div>
-        <div class="mini-grid">
-          <div class="mini"><div class="k">Vent</div><div class="v" id="windVal">-- km/h</div></div>
-          <div class="mini"><div class="k">Humidité</div><div class="v" id="humidityVal">-- %</div></div>
-          <div class="mini"><div class="k">Lever</div><div class="v" id="sunriseVal">--:--</div></div>
-          <div class="mini"><div class="k">Coucher</div><div class="v" id="sunsetVal">--:--</div></div>
-        </div>
-      </article>
-
-      <article class="card glass">
-        <h2>Pomodoro</h2>
-        <div class="focus-ring">
-          <svg viewBox="0 0 120 120" aria-hidden="true">
-            <circle cx="60" cy="60" r="48" stroke="rgba(255,255,255,.10)" stroke-width="10" fill="none"></circle>
-            <circle id="focusProgress" cx="60" cy="60" r="48" stroke="url(#grad)" stroke-width="10" stroke-linecap="round" fill="none" stroke-dasharray="301.59" stroke-dashoffset="0"></circle>
-            <defs>
-              <linearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#65a7ff"></stop>
-                <stop offset="100%" stop-color="#72f0df"></stop>
-              </linearGradient>
-            </defs>
-          </svg>
-          <div class="focus-center">
-            <div>
-              <div class="focus-time" id="focusTime">25:00</div>
-              <div class="sub" id="focusMode">Session focus</div>
-            </div>
-          </div>
-        </div>
-        <div class="btns">
-          <button class="btn primary" id="focusStartBtn">Démarrer</button>
-          <button class="btn" id="focusResetBtn">Reset</button>
-        </div>
-      </article>
-
-      <article class="card glass">
-        <h2>Tâches</h2>
-        <div class="list" id="taskList">
-          <div class="task"><button aria-label="Terminer"></button><div class="txt">Revoir JavaFX</div><div class="tag">Cours</div></div>
-          <div class="task"><button aria-label="Terminer"></button><div class="txt">Push GitLab</div><div class="tag">Projet</div></div>
-          <div class="task done"><button aria-label="Terminer">✓</button><div class="txt">Préparer café</div><div class="tag">Morning</div></div>
-        </div>
-        <button class="btn" id="taskNotifBtn">Notifier dans 20 sec</button>
-      </article>
-
-      <article class="card glass">
-        <h2>Calendrier</h2>
-        <div class="calendar" id="calendar"></div>
-      </article>
-
-      <article class="card glass span-2">
-        <h2>News réelles</h2>
-        <div class="list" id="newsList">
-          <div class="news-item">Chargement des actualités…</div>
-        </div>
-      </article>
-    </section>
-
-    <div class="footer-note">Ajoute l'app à l'écran d'accueil sur iPhone pour une expérience proche du natif.</div>
+  <div class="install-banner glass" id="iosHint">
+    Sur iPhone : ouvre ce site dans Safari, puis <strong>Partager → Sur l'écran d'accueil</strong> pour utiliser en PWA et activer les notifications locales.
   </div>
 
-  <script>
-    const state = {
-      weather: null,
-      focusRunning: false,
-      focusTotal: 25 * 60,
-      focusRemaining: 25 * 60,
-      focusInterval: null,
-      deferredPrompt: null,
-      swReg: null,
-      notificationReady: false,
-    };
+  <div class="main-grid">
+    <section class="hero glass">
+      <div class="time" id="time">00:00</div>
+      <div class="date" id="date">—</div>
+      <div class="chips">
+        <div class="chip" id="locChip">📍 Roubaix</div>
+        <div class="chip" id="tempChip">☁️ --°C</div>
+        <div class="chip" id="notifChip">🔔 Notifications désactivées</div>
+      </div>
+    </section>
 
-    const $ = (sel) => document.querySelector(sel);
-    const timeEl = $('#time');
-    const dateEl = $('#date');
-    const notifStatus = $('#notifStatus');
-    const notifChip = $('#notifChip');
+    <section class="card glass">
+      <h2>Notifications</h2>
+      <div class="notif-status" id="notifStatus">Appuie sur Activer pour autoriser les notifications.</div>
+      <div class="btns">
+        <button class="btn primary" id="enableNotifBtn">Activer</button>
+        <button class="btn" id="testNotifBtn">Test 5 sec</button>
+      </div>
+    </section>
+  </div>
 
-    function updateClock() {
-      const now = new Date();
-      timeEl.textContent = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-      dateEl.textContent = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    }
-    updateClock();
-    setInterval(updateClock, 1000);
+  <section class="widgets">
+    <!-- Météo -->
+    <article class="card glass">
+      <h2>Météo réelle</h2>
+      <div class="weather-main">
+        <div style="font-size:52px" id="weatherEmoji">☁️</div>
+        <div>
+          <div class="temp"><span id="weatherTemp">--</span>°</div>
+          <div class="sub" id="weatherText">Chargement météo…</div>
+        </div>
+      </div>
+      <div class="mini-grid">
+        <div class="mini"><div class="k">Vent</div><div class="v" id="windVal">-- km/h</div></div>
+        <div class="mini"><div class="k">Humidité</div><div class="v" id="humidityVal">-- %</div></div>
+        <div class="mini"><div class="k">Lever</div><div class="v" id="sunriseVal">--:--</div></div>
+        <div class="mini"><div class="k">Coucher</div><div class="v" id="sunsetVal">--:--</div></div>
+      </div>
+    </article>
 
-    function showIOSHint() {
-      const isiPhone = /iphone|ipad|ipod/i.test(navigator.userAgent);
-      const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-      if (isiPhone && !standalone) $('#iosHint').style.display = 'block';
-    }
-    showIOSHint();
+    <!-- Pomodoro -->
+    <article class="card glass">
+      <h2>Pomodoro</h2>
+      <div class="focus-ring">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle cx="60" cy="60" r="48" stroke="rgba(255,255,255,.10)" stroke-width="10" fill="none"></circle>
+          <circle id="focusProgress" cx="60" cy="60" r="48" stroke="url(#pomGrad)" stroke-width="10"
+            stroke-linecap="round" fill="none" stroke-dasharray="301.59" stroke-dashoffset="0"></circle>
+          <defs>
+            <linearGradient id="pomGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#65a7ff"></stop>
+              <stop offset="100%" stop-color="#72f0df"></stop>
+            </linearGradient>
+          </defs>
+        </svg>
+        <div class="focus-center">
+          <div>
+            <div class="focus-time" id="focusTime">25:00</div>
+            <div class="sub" id="focusMode">Session focus</div>
+          </div>
+        </div>
+      </div>
+      <div class="preset-btns" id="presetBtns">
+        <button class="preset-btn active" data-min="25">25 min</button>
+        <button class="preset-btn" data-min="45">45 min</button>
+        <button class="preset-btn" data-min="90">90 min</button>
+      </div>
+      <div class="custom-dur-row">
+        <input type="number" class="custom-dur-input" id="customDurInput" min="1" max="120" placeholder="—" aria-label="Durée personnalisée" />
+        <span class="custom-dur-label">min (perso)</span>
+      </div>
+      <div class="btns">
+        <button class="btn primary" id="focusStartBtn">Démarrer</button>
+        <button class="btn" id="focusResetBtn">Reset</button>
+      </div>
+    </article>
 
-    async function registerSW() {
-      if (!('serviceWorker' in navigator)) return null;
-      try {
-        const reg = await navigator.serviceWorker.register('./sw.js');
-        state.swReg = reg;
-        return reg;
-      } catch (e) {
-        console.error('SW registration failed', e);
-        return null;
-      }
-    }
+    <!-- Tâches -->
+    <article class="card glass">
+      <h2>Tâches</h2>
+      <div class="list" id="taskList"></div>
+      <div id="taskShowAllRow" style="display:none">
+        <button class="task-show-all-btn" id="taskShowAllBtn">Voir tout</button>
+      </div>
+      <div class="task-input-row">
+        <input type="text" class="task-input" id="taskInput" placeholder="Nouvelle tâche…" maxlength="100" aria-label="Nouvelle tâche" />
+        <button class="task-add-btn" id="taskAddBtn" aria-label="Ajouter tâche">+</button>
+      </div>
+    </article>
 
-    function setNotifUI(text, active=false) {
-      notifStatus.textContent = text;
-      notifChip.textContent = active ? '🔔 Notifications actives' : '🔕 Notifications désactivées';
-    }
+    <!-- Calendrier -->
+    <article class="card glass">
+      <h2>Calendrier</h2>
+      <div class="calendar" id="calendar"></div>
+    </article>
 
-    async function ensureNotifications() {
-      if (!('Notification' in window)) {
-        setNotifUI('Ce navigateur ne supporte pas Notification API.');
-        return false;
-      }
-      let permission = Notification.permission;
-      if (permission !== 'granted') permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        state.notificationReady = true;
-        setNotifUI('Notifications autorisées. Tu peux recevoir des rappels locaux sur iPhone/PWA.', true);
-        return true;
-      }
-      setNotifUI('Notifications refusées. Autorise-les dans Safari / Réglages.');
-      return false;
-    }
+    <!-- Notifications programmées -->
+    <article class="card glass span-2">
+      <h2>Notifications programmées</h2>
+      <div class="scheduled-list" id="scheduledList">
+        <div class="notif-status">Aucune notification programmée.</div>
+      </div>
+    </article>
 
-    async function scheduleNotification({ title, body, delay = 0, tag = 'morning', requireSW = true }) {
-      const ok = await ensureNotifications();
-      if (!ok) return;
-      if (requireSW && state.swReg) {
-        const active = state.swReg.active || await navigator.serviceWorker.ready.then(r => r.active);
-        active && active.postMessage({ type: 'SCHEDULE_NOTIFICATION', title, body, delay, tag, icon: './assets/icon-192.png', badge: './assets/icon-192.png' });
-      } else {
-        setTimeout(() => new Notification(title, { body, tag }), delay);
-      }
-    }
+    <!-- News -->
+    <article class="card glass span-2">
+      <h2>News réelles</h2>
+      <div class="list" id="newsList">
+        <div class="news-item">Chargement des actualités…</div>
+      </div>
+    </article>
+  </section>
 
-    function renderCalendar() {
-      const calendar = $('#calendar');
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth();
-      const first = new Date(year, month, 1);
-      const last = new Date(year, month + 1, 0);
-      const dayNames = ['L','M','M','J','V','S','D'];
-      calendar.innerHTML = '';
-      dayNames.forEach(d => {
-        const el = document.createElement('div');
-        el.className = 'dayname';
-        el.textContent = d;
-        calendar.appendChild(el);
+  <div class="footer-note">Ajoute l'app à l'écran d'accueil sur iPhone pour une expérience proche du natif.</div>
+</div>
+
+<!-- ══ LANDSCAPE CAROUSEL ══ -->
+<div class="carousel-view" id="carouselView">
+  <div class="carousel-track" id="carouselTrack">
+
+    <!-- Slide 1: Horloge + météo -->
+    <div class="carousel-slide" style="background: radial-gradient(circle at 20% 30%, rgba(84,141,255,0.3), transparent 50%)">
+      <div class="slide-label">Heure & Météo</div>
+      <div class="slide-time" id="cs-time">00:00</div>
+      <div class="slide-date" id="cs-date">—</div>
+      <div class="slide-weather" id="cs-weather">☁️ --°C · Roubaix</div>
+    </div>
+
+    <!-- Slide 2: Tâches -->
+    <div class="carousel-slide" style="background: radial-gradient(circle at 80% 20%, rgba(114,240,223,0.2), transparent 50%)">
+      <div class="slide-label">Tâches du jour</div>
+      <div class="slide-tasks" id="cs-tasks"></div>
+    </div>
+
+    <!-- Slide 3: Pomodoro -->
+    <div class="carousel-slide" style="background: radial-gradient(circle at 50% 50%, rgba(101,167,255,0.25), transparent 60%)">
+      <div class="slide-label">Pomodoro</div>
+      <div class="slide-focus-time" id="cs-focus">25:00</div>
+      <div class="sub" id="cs-focus-mode">Session focus</div>
+      <div style="display:flex; gap:12px; margin-top:8px;">
+        <button class="btn primary" style="min-width:120px" id="cs-start-btn">Démarrer</button>
+        <button class="btn" style="min-width:80px" id="cs-reset-btn">Reset</button>
+      </div>
+    </div>
+
+    <!-- Slide 4: Dernière news -->
+    <div class="carousel-slide" style="background: radial-gradient(circle at 30% 70%, rgba(255,118,200,0.2), transparent 50%)">
+      <div class="slide-label">Dernière news</div>
+      <div id="cs-news"><div class="slide-news-item">Chargement…</div></div>
+    </div>
+
+    <!-- Slide 5: Prochaine notif -->
+    <div class="carousel-slide" style="background: radial-gradient(circle at 70% 30%, rgba(255,211,109,0.15), transparent 50%)">
+      <div class="slide-label">Prochaine notification</div>
+      <div class="slide-notif" id="cs-notif">
+        <div class="slide-notif-title">—</div>
+        <div class="slide-notif-time">Aucune programmée</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Carousel dots -->
+<div class="carousel-dots" id="carouselDots">
+  <div class="dot active"></div>
+  <div class="dot"></div>
+  <div class="dot"></div>
+  <div class="dot"></div>
+  <div class="dot"></div>
+</div>
+
+<script>
+'use strict';
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STATE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const $ = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+
+const state = {
+  weather: null,
+  focusRunning: false,
+  focusTotal: 25 * 60,
+  focusRemaining: 25 * 60,
+  focusInterval: null,
+  deferredPrompt: null,
+  swReg: null,
+  notificationReady: false,
+  tasks: [],
+  showAllTasks: false,
+  scheduledNotifs: [],
+  latestNews: [],
+};
+
+const MAX_TASKS = 20;
+const VISIBLE_TASKS = 5;
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// UTILS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function saveTasks() {
+  localStorage.setItem('morning_tasks', JSON.stringify(state.tasks));
+}
+function loadTasks() {
+  try {
+    const stored = localStorage.getItem('morning_tasks');
+    if (stored) state.tasks = JSON.parse(stored);
+    else state.tasks = [
+      { id: Date.now() + 1, text: 'Revoir JavaFX', done: false },
+      { id: Date.now() + 2, text: 'Push GitLab', done: false },
+      { id: Date.now() + 3, text: 'Préparer café', done: true },
+    ];
+  } catch { state.tasks = []; }
+}
+function saveFocusDuration() {
+  localStorage.setItem('morning_focus_min', String(Math.round(state.focusTotal / 60)));
+}
+function loadFocusDuration() {
+  const v = parseInt(localStorage.getItem('morning_focus_min') || '25', 10);
+  state.focusTotal = (isNaN(v) || v < 1 || v > 120) ? 25 * 60 : v * 60;
+  state.focusRemaining = state.focusTotal;
+}
+function saveScheduled() {
+  localStorage.setItem('morning_scheduled', JSON.stringify(state.scheduledNotifs));
+}
+function loadScheduled() {
+  try {
+    const s = localStorage.getItem('morning_scheduled');
+    state.scheduledNotifs = s ? JSON.parse(s) : [];
+  } catch { state.scheduledNotifs = []; }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CLOCK
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function updateClock() {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const dateStr = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  $('#time').textContent = timeStr;
+  $('#date').textContent = dateStr;
+  $('#cs-time').textContent = timeStr;
+  $('#cs-date').textContent = dateStr;
+  // Dynamic greeting
+  const h = now.getHours();
+  let greet = h < 12 ? 'Bonjour !' : h < 18 ? 'Bon après-midi !' : 'Bonsoir !';
+  $('#headerTitle').textContent = greet;
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// iOS HINT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function showIOSHint() {
+  const isiOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if (isiOS && !standalone) $('#iosHint').style.display = 'block';
+}
+showIOSHint();
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SERVICE WORKER
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function registerSW() {
+  if (!('serviceWorker' in navigator)) return null;
+  try {
+    const reg = await navigator.serviceWorker.register('./sw.js');
+    state.swReg = reg;
+    return reg;
+  } catch (e) {
+    console.warn('SW registration failed', e);
+    return null;
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// NOTIFICATIONS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function setNotifUI(text, active = false) {
+  $('#notifStatus').textContent = text;
+  $('#notifChip').textContent = active ? '🔔 Notifications actives' : '🔕 Notifications désactivées';
+}
+
+async function ensureNotifications() {
+  if (!('Notification' in window)) {
+    setNotifUI('Ce navigateur ne supporte pas les notifications.'); return false;
+  }
+  let perm = Notification.permission;
+  if (perm === 'default') perm = await Notification.requestPermission();
+  if (perm === 'granted') {
+    state.notificationReady = true;
+    setNotifUI('Notifications autorisées ✓', true);
+    return true;
+  }
+  setNotifUI('Notifications refusées. Autorise-les dans les réglages.');
+  return false;
+}
+
+async function sendNotif({ title, body, delay = 0, tag = 'morning' }) {
+  const ok = await ensureNotifications();
+  if (!ok) return;
+  if (state.swReg) {
+    const active = state.swReg.active || (await navigator.serviceWorker.ready).active;
+    if (active) {
+      active.postMessage({
+        type: 'SCHEDULE_NOTIFICATION', title, body, delay, tag,
+        icon: './assets/icon-192.png', badge: './assets/icon-192.png'
       });
-      const start = (first.getDay() + 6) % 7;
-      for (let i = 0; i < start; i++) {
-        const blank = document.createElement('div');
-        calendar.appendChild(blank);
-      }
-      for (let d = 1; d <= last.getDate(); d++) {
-        const el = document.createElement('div');
-        el.className = 'day' + (d === now.getDate() ? ' today' : '');
-        el.textContent = d;
-        calendar.appendChild(el);
-      }
+      return;
     }
-    renderCalendar();
+  }
+  setTimeout(() => new Notification(title, { body, tag }), delay);
+}
 
-    function bindTasks() {
-      document.querySelectorAll('.task').forEach(task => {
-        task.addEventListener('click', () => {
-          task.classList.toggle('done');
-          const btn = task.querySelector('button');
-          btn.textContent = task.classList.contains('done') ? '✓' : '';
-        });
-      });
-    }
-    bindTasks();
+// Add to scheduled notifs list UI
+function addScheduledNotif(id, title, nextTime) {
+  // Remove old same-id if exists
+  state.scheduledNotifs = state.scheduledNotifs.filter(n => n.id !== id);
+  state.scheduledNotifs.push({ id, title, nextTime });
+  saveScheduled();
+  renderScheduledNotifs();
+}
+function removeScheduledNotif(id) {
+  state.scheduledNotifs = state.scheduledNotifs.filter(n => n.id !== id);
+  saveScheduled();
+  renderScheduledNotifs();
+  updateCarouselNotif();
+}
 
-    function weatherEmoji(code) {
-      if (code < 300) return '⛈️';
-      if (code < 600) return '🌧️';
-      if (code < 700) return '❄️';
-      if (code === 800) return '☀️';
-      if (code <= 804) return '☁️';
-      return '🌤️';
-    }
+function renderScheduledNotifs() {
+  const list = $('#scheduledList');
+  if (!state.scheduledNotifs.length) {
+    list.innerHTML = '<div class="notif-status">Aucune notification programmée.</div>';
+    updateCarouselNotif();
+    return;
+  }
+  const sorted = [...state.scheduledNotifs].sort((a, b) => a.nextTime - b.nextTime);
+  list.innerHTML = '';
+  sorted.forEach(n => {
+    const d = new Date(n.nextTime);
+    const timeStr = d.toLocaleString('fr-FR', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+    const el = document.createElement('div');
+    el.className = 'scheduled-item';
+    el.innerHTML = `
+      <div class="sched-info">
+        <div class="sched-title">${escHtml(n.title)}</div>
+        <div class="sched-time">${timeStr}</div>
+      </div>
+      <button class="sched-cancel" data-id="${escHtml(n.id)}">Annuler</button>
+    `;
+    el.querySelector('.sched-cancel').addEventListener('click', () => removeScheduledNotif(n.id));
+    list.appendChild(el);
+  });
+  updateCarouselNotif();
+}
 
-    async function loadWeather() {
-      const lat = 50.6942, lon = 3.1746;
-      try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=sunrise,sunset&timezone=Europe%2FParis`;
-        const res = await fetch(url);
-        const data = await res.json();
-        const cur = data.current;
-        const today = 0;
-        $('#weatherTemp').textContent = Math.round(cur.temperature_2m);
-        $('#weatherText').textContent = `Roubaix · Vent ${Math.round(cur.wind_speed_10m)} km/h · Humidité ${Math.round(cur.relative_humidity_2m)}%`;
-        $('#weatherEmoji').textContent = weatherEmoji(cur.weather_code);
-        $('#windVal').textContent = `${Math.round(cur.wind_speed_10m)} km/h`;
-        $('#humidityVal').textContent = `${Math.round(cur.relative_humidity_2m)} %`;
-        $('#sunriseVal').textContent = new Date(data.daily.sunrise[today]).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-        $('#sunsetVal').textContent = new Date(data.daily.sunset[today]).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-        $('#tempChip').textContent = `${weatherEmoji(cur.weather_code)} ${Math.round(cur.temperature_2m)}°C`;
-      } catch (e) {
-        $('#weatherText').textContent = 'Impossible de charger la météo.';
-      }
-    }
+function updateCarouselNotif() {
+  const el = $('#cs-notif');
+  const sorted = [...state.scheduledNotifs].sort((a, b) => a.nextTime - b.nextTime);
+  if (!sorted.length) {
+    el.innerHTML = '<div class="slide-notif-title">—</div><div class="slide-notif-time">Aucune programmée</div>';
+    return;
+  }
+  const n = sorted[0];
+  const d = new Date(n.nextTime);
+  const timeStr = d.toLocaleString('fr-FR', { weekday: 'long', hour: '2-digit', minute: '2-digit' });
+  el.innerHTML = `<div class="slide-notif-title">${escHtml(n.title)}</div><div class="slide-notif-time">${timeStr}</div>`;
+}
 
-    async function loadNews() {
-      const list = $('#newsList');
-      try {
-        const res = await fetch('https://api.spaceflightnewsapi.net/v4/articles/?limit=3');
-        const data = await res.json();
-        list.innerHTML = '';
-        data.results.forEach(item => {
-          const el = document.createElement('div');
-          el.className = 'news-item';
-          el.innerHTML = `<a href="${item.url}" target="_blank" rel="noopener noreferrer">${item.title}</a><small>${item.news_site} · ${new Date(item.published_at).toLocaleDateString('fr-FR')}</small>`;
-          list.appendChild(el);
-        });
-      } catch (e) {
-        list.innerHTML = '<div class="news-item">Impossible de charger les news.</div>';
-      }
-    }
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
-    function renderFocus() {
-      const mm = String(Math.floor(state.focusRemaining / 60)).padStart(2, '0');
-      const ss = String(state.focusRemaining % 60).padStart(2, '0');
-      $('#focusTime').textContent = `${mm}:${ss}`;
-      const total = state.focusTotal;
-      const progress = 1 - (state.focusRemaining / total);
-      const circumference = 301.59;
-      $('#focusProgress').style.strokeDashoffset = String(circumference * progress);
-    }
+// ── Planifier les notifs automatiques ──
+function msUntilNextTime(hour, minute, dayOfWeek = null) {
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(hour, minute, 0, 0);
 
-    async function finishFocus() {
-      clearInterval(state.focusInterval);
-      state.focusRunning = false;
-      $('#focusStartBtn').textContent = 'Démarrer';
-      $('#focusMode').textContent = 'Session terminée';
-      await scheduleNotification({
-        title: 'Pomodoro terminé',
-        body: 'Ta session focus est finie. Fais une pause de 5 minutes.',
-        delay: 0,
-        tag: 'focus-end'
-      });
-    }
+  if (dayOfWeek !== null) {
+    // dayOfWeek: 0=Sun,1=Mon,...,5=Fri,6=Sat
+    const curDay = now.getDay();
+    let daysAhead = (dayOfWeek - curDay + 7) % 7;
+    if (daysAhead === 0 && now >= target) daysAhead = 7;
+    target.setDate(target.getDate() + daysAhead);
+  } else {
+    if (now >= target) target.setDate(target.getDate() + 1);
+  }
+  return target.getTime() - now.getTime();
+}
 
-    function startFocus() {
-      if (state.focusRunning) {
-        clearInterval(state.focusInterval);
-        state.focusRunning = false;
-        $('#focusStartBtn').textContent = 'Démarrer';
-        return;
-      }
-      state.focusRunning = true;
-      $('#focusStartBtn').textContent = 'Pause';
-      $('#focusMode').textContent = 'Session focus';
-      state.focusInterval = setInterval(() => {
-        state.focusRemaining -= 1;
-        renderFocus();
-        if (state.focusRemaining <= 0) finishFocus();
-      }, 1000);
-    }
+async function fetchMusicReleases() {
+  try {
+    const res = await fetch('https://itunes.apple.com/search?term=france&media=music&entity=album&country=fr&limit=5&sort=recent');
+    const data = await res.json();
+    const albums = data.results.slice(0, 5);
+    return albums.map(a => `🎵 ${a.artistName} – ${a.collectionName}`).join('\n');
+  } catch {
+    return 'Nouvelles sorties françaises disponibles sur Apple Music.';
+  }
+}
 
-    function resetFocus() {
-      clearInterval(state.focusInterval);
-      state.focusRunning = false;
-      state.focusRemaining = state.focusTotal;
-      $('#focusStartBtn').textContent = 'Démarrer';
-      $('#focusMode').textContent = 'Session focus';
-      renderFocus();
-    }
+async function fetchNewsRecap() {
+  let items = [];
+  try {
+    const res = await fetch('https://rss2json.com/api.json?rss_url=https%3A%2F%2Fwww.lemonde.fr%2Frss%2Fune.xml');
+    const data = await res.json();
+    if (data.items) items = items.concat(data.items.slice(0, 2).map(i => '🇫🇷 ' + i.title));
+  } catch {}
+  try {
+    const res2 = await fetch('https://rss2json.com/api.json?rss_url=https%3A%2F%2Ftechcrunch.com%2Ffeed%2F');
+    const data2 = await res2.json();
+    if (data2.items) items = items.concat(data2.items.slice(0, 2).map(i => '💻 ' + i.title));
+  } catch {}
+  if (!items.length) return 'Récap disponible sur le dashboard.';
+  return items.slice(0, 4).join('\n') + '\n→ Ouvre l\'app pour en savoir plus.';
+}
+
+async function scheduleAutoNotifs() {
+  const ok = await ensureNotifications();
+  if (!ok) return;
+
+  const now = new Date();
+
+  // A) Sorties musicales vendredi 00:01
+  const isFriday = now.getDay() === 5;
+  let musicDelay;
+  let musicNext;
+
+  if (isFriday) {
+    const isAfterMidnight = now.getHours() === 0 && now.getMinutes() < 5;
+    musicDelay = isAfterMidnight ? 5000 : msUntilNextTime(0, 1, 5);
+  } else {
+    musicDelay = msUntilNextTime(0, 1, 5);
+  }
+  musicNext = Date.now() + musicDelay;
+
+  addScheduledNotif('music-friday', '🎵 Sorties du vendredi', musicNext);
+
+  // Schedule music notif
+  setTimeout(async () => {
+    const body = await fetchMusicReleases();
+    sendNotif({ title: '🎵 Sorties du vendredi', body, tag: 'music-friday' });
+    // Reschedule for next Friday
+    scheduleAutoNotifs();
+  }, musicDelay);
+
+  // B) Récap 18h daily
+  const recapDelay = msUntilNextTime(18, 0);
+  const recapNext = Date.now() + recapDelay;
+  addScheduledNotif('recap-18h', '📰 Récap de ta journée', recapNext);
+
+  setTimeout(async () => {
+    const body = await fetchNewsRecap();
+    sendNotif({ title: '📰 Récap de ta journée', body, tag: 'recap-18h' });
+    // Reschedule for tomorrow
+    setTimeout(() => scheduleAutoNotifs(), 60000);
+  }, recapDelay);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// POMODORO
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderFocus() {
+  const mm = String(Math.floor(state.focusRemaining / 60)).padStart(2, '0');
+  const ss = String(state.focusRemaining % 60).padStart(2, '0');
+  const timeStr = `${mm}:${ss}`;
+  $('#focusTime').textContent = timeStr;
+  $('#cs-focus').textContent = timeStr;
+  const circumference = 301.59;
+  const progress = 1 - (state.focusRemaining / state.focusTotal);
+  $('#focusProgress').style.strokeDashoffset = String(circumference * progress);
+}
+
+async function finishFocus() {
+  clearInterval(state.focusInterval);
+  state.focusRunning = false;
+  $('#focusStartBtn').textContent = 'Démarrer';
+  $('#focusMode').textContent = 'Session terminée ✓';
+  $('#cs-focus-mode').textContent = 'Session terminée ✓';
+  $('#cs-start-btn').textContent = 'Démarrer';
+  await sendNotif({ title: 'Pomodoro terminé ✓', body: 'Ta session focus est finie. Prends une pause de 5 min.', delay: 0, tag: 'focus-end' });
+}
+
+function startFocus() {
+  if (state.focusRunning) {
+    clearInterval(state.focusInterval);
+    state.focusRunning = false;
+    $('#focusStartBtn').textContent = 'Démarrer';
+    $('#cs-start-btn').textContent = 'Démarrer';
+    return;
+  }
+  state.focusRunning = true;
+  $('#focusStartBtn').textContent = 'Pause';
+  $('#cs-start-btn').textContent = 'Pause';
+  $('#focusMode').textContent = 'Session focus';
+  $('#cs-focus-mode').textContent = 'Session focus';
+  state.focusInterval = setInterval(() => {
+    state.focusRemaining -= 1;
     renderFocus();
+    if (state.focusRemaining <= 0) finishFocus();
+  }, 1000);
+}
 
-    $('#focusStartBtn').addEventListener('click', startFocus);
-    $('#focusResetBtn').addEventListener('click', resetFocus);
-    $('#enableNotifBtn').addEventListener('click', ensureNotifications);
-    $('#testNotifBtn').addEventListener('click', () => scheduleNotification({ title: 'Morning Dashboard', body: 'Test notification OK dans 5 secondes.', delay: 5000, tag: 'test' }));
-    $('#morningNotifBtn').addEventListener('click', () => scheduleNotification({ title: 'Bonjour 👋', body: 'Ton dashboard t’attend. Météo, tâches et focus sont prêts.', delay: 30000, tag: 'morning' }));
-    $('#focusNotifBtn').addEventListener('click', () => scheduleNotification({ title: 'Focus', body: 'Rappel : lance ta prochaine session Pomodoro.', delay: 5000, tag: 'focus-reminder' }));
-    $('#taskNotifBtn').addEventListener('click', () => scheduleNotification({ title: 'Tâches du matin', body: 'Pense à revoir JavaFX et pousser sur GitLab.', delay: 20000, tag: 'tasks' }));
-    $('#refreshBtn').addEventListener('click', () => { loadWeather(); loadNews(); });
+function resetFocus() {
+  clearInterval(state.focusInterval);
+  state.focusRunning = false;
+  state.focusRemaining = state.focusTotal;
+  $('#focusStartBtn').textContent = 'Démarrer';
+  $('#cs-start-btn').textContent = 'Démarrer';
+  $('#focusMode').textContent = 'Session focus';
+  $('#cs-focus-mode').textContent = 'Session focus';
+  renderFocus();
+}
 
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      state.deferredPrompt = e;
+function setFocusDuration(minutes) {
+  clearInterval(state.focusInterval);
+  state.focusRunning = false;
+  state.focusTotal = minutes * 60;
+  state.focusRemaining = state.focusTotal;
+  saveFocusDuration();
+  $('#focusStartBtn').textContent = 'Démarrer';
+  $('#cs-start-btn').textContent = 'Démarrer';
+  $('#focusMode').textContent = 'Session focus';
+  $('#cs-focus-mode').textContent = 'Session focus';
+  renderFocus();
+}
+
+// Preset buttons
+function updatePresetUI(activeMin) {
+  $$('.preset-btn').forEach(btn => {
+    const min = parseInt(btn.dataset.min, 10);
+    btn.classList.toggle('active', min === activeMin);
+  });
+  $('#customDurInput').value = '';
+}
+
+$$('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const min = parseInt(btn.dataset.min, 10);
+    setFocusDuration(min);
+    updatePresetUI(min);
+  });
+});
+
+$('#customDurInput').addEventListener('change', () => {
+  const v = parseInt($('#customDurInput').value, 10);
+  if (isNaN(v) || v < 1 || v > 120) return;
+  setFocusDuration(v);
+  $$('.preset-btn').forEach(b => b.classList.remove('active'));
+});
+
+$('#focusStartBtn').addEventListener('click', startFocus);
+$('#focusResetBtn').addEventListener('click', resetFocus);
+$('#cs-start-btn').addEventListener('click', startFocus);
+$('#cs-reset-btn').addEventListener('click', resetFocus);
+
+// Restore saved duration
+loadFocusDuration();
+const savedMin = Math.round(state.focusTotal / 60);
+updatePresetUI([25, 45, 90].includes(savedMin) ? savedMin : -1);
+if (!([25, 45, 90].includes(savedMin))) {
+  $('#customDurInput').value = savedMin;
+}
+renderFocus();
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// TASKS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function updateTaskBadge() {
+  const remaining = state.tasks.filter(t => !t.done).length;
+  const badge = $('#taskBadge');
+  badge.textContent = remaining;
+  badge.classList.toggle('visible', remaining > 0);
+}
+
+function renderTasks() {
+  const list = $('#taskList');
+  list.innerHTML = '';
+  const tasks = state.showAllTasks ? state.tasks : state.tasks.slice(0, VISIBLE_TASKS);
+
+  tasks.forEach((task, idx) => {
+    const el = document.createElement('div');
+    el.className = 'task' + (task.done ? ' done' : '');
+    el.dataset.id = task.id;
+    el.innerHTML = `
+      <button class="task-check-btn" aria-label="Terminer">${task.done ? '✓' : ''}</button>
+      <div class="txt">${escHtml(task.text)}</div>
+      <button class="task-del-btn" aria-label="Supprimer">✕</button>
+    `;
+
+    el.querySelector('.task-check-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      task.done = !task.done;
+      saveTasks();
+      renderTasks();
+      updateCarouselTasks();
     });
 
-    Promise.all([registerSW(), loadWeather(), loadNews()]).then(() => {
-      if ('Notification' in window && Notification.permission === 'granted') {
-        setNotifUI('Notifications déjà autorisées.', true);
-      }
+    el.querySelector('.task-del-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      state.tasks = state.tasks.filter(t => t.id !== task.id);
+      saveTasks();
+      renderTasks();
+      updateCarouselTasks();
     });
-  </script>
+
+    // Swipe to reveal delete on mobile
+    let startX = 0;
+    el.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
+    el.addEventListener('touchend', e => {
+      const dx = e.changedTouches[0].clientX - startX;
+      if (dx < -50) el.classList.add('swipe-reveal');
+      else if (dx > 20) el.classList.remove('swipe-reveal');
+    }, { passive: true });
+
+    list.appendChild(el);
+  });
+
+  // Show all / collapse button
+  const showAllRow = $('#taskShowAllRow');
+  const btn = $('#taskShowAllBtn');
+  if (state.tasks.length > VISIBLE_TASKS) {
+    showAllRow.style.display = 'block';
+    btn.textContent = state.showAllTasks
+      ? 'Réduire'
+      : `Voir tout (${state.tasks.length - VISIBLE_TASKS} de plus)`;
+  } else {
+    showAllRow.style.display = 'none';
+  }
+
+  updateTaskBadge();
+}
+
+$('#taskShowAllBtn').addEventListener('click', () => {
+  state.showAllTasks = !state.showAllTasks;
+  renderTasks();
+});
+
+function addTask(text) {
+  const trimmed = text.trim();
+  if (!trimmed || state.tasks.length >= MAX_TASKS) return;
+  const task = { id: Date.now(), text: trimmed, done: false };
+  state.tasks.unshift(task);
+  saveTasks();
+  renderTasks();
+  updateCarouselTasks();
+  // Animate first task
+  const firstTask = $('#taskList .task');
+  if (firstTask) firstTask.classList.add('new');
+}
+
+$('#taskInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    addTask($('#taskInput').value);
+    $('#taskInput').value = '';
+  }
+});
+$('#taskAddBtn').addEventListener('click', () => {
+  addTask($('#taskInput').value);
+  $('#taskInput').value = '';
+});
+
+function updateCarouselTasks() {
+  const el = $('#cs-tasks');
+  el.innerHTML = '';
+  const visible = state.tasks.slice(0, 6);
+  if (!visible.length) {
+    el.innerHTML = '<div class="slide-task">Aucune tâche !</div>';
+    return;
+  }
+  visible.forEach(t => {
+    const d = document.createElement('div');
+    d.className = 'slide-task' + (t.done ? ' done' : '');
+    d.textContent = (t.done ? '✓ ' : '○ ') + t.text;
+    el.appendChild(d);
+  });
+}
+
+loadTasks();
+renderTasks();
+updateCarouselTasks();
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CALENDAR
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderCalendar() {
+  const calendar = $('#calendar');
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const first = new Date(year, month, 1);
+  const last = new Date(year, month + 1, 0);
+  const dayNames = ['L','M','M','J','V','S','D'];
+  calendar.innerHTML = '';
+  dayNames.forEach(d => {
+    const el = document.createElement('div');
+    el.className = 'dayname'; el.textContent = d;
+    calendar.appendChild(el);
+  });
+  const start = (first.getDay() + 6) % 7;
+  for (let i = 0; i < start; i++) calendar.appendChild(document.createElement('div'));
+  for (let d = 1; d <= last.getDate(); d++) {
+    const el = document.createElement('div');
+    el.className = 'day' + (d === now.getDate() ? ' today' : '');
+    el.textContent = d;
+    calendar.appendChild(el);
+  }
+}
+renderCalendar();
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// WEATHER
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function weatherEmoji(code) {
+  if (code < 300) return '⛈️';
+  if (code < 600) return '🌧️';
+  if (code < 700) return '❄️';
+  if (code === 800) return '☀️';
+  if (code <= 804) return '⛅';
+  return '🌤️';
+}
+
+async function loadWeather() {
+  const lat = 50.6942, lon = 3.1746;
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=sunrise,sunset&timezone=Europe%2FParis`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const cur = data.current;
+    const emoji = weatherEmoji(cur.weather_code);
+    const temp = Math.round(cur.temperature_2m);
+    $('#weatherTemp').textContent = temp;
+    $('#weatherText').textContent = `Roubaix · Vent ${Math.round(cur.wind_speed_10m)} km/h · Humidité ${Math.round(cur.relative_humidity_2m)}%`;
+    $('#weatherEmoji').textContent = emoji;
+    $('#windVal').textContent = `${Math.round(cur.wind_speed_10m)} km/h`;
+    $('#humidityVal').textContent = `${Math.round(cur.relative_humidity_2m)} %`;
+    $('#sunriseVal').textContent = new Date(data.daily.sunrise[0]).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    $('#sunsetVal').textContent = new Date(data.daily.sunset[0]).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    $('#tempChip').textContent = `${emoji} ${temp}°C`;
+    $('#cs-weather').textContent = `${emoji} ${temp}°C · Roubaix`;
+    state.weather = { emoji, temp };
+  } catch {
+    $('#weatherText').textContent = 'Météo indisponible.';
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// NEWS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function loadNews() {
+  const list = $('#newsList');
+  try {
+    const res = await fetch('https://api.spaceflightnewsapi.net/v4/articles/?limit=4');
+    const data = await res.json();
+    list.innerHTML = '';
+    state.latestNews = data.results || [];
+    state.latestNews.forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'news-item';
+      el.innerHTML = `<a href="${item.url}" target="_blank" rel="noopener noreferrer">${escHtml(item.title)}</a><small>${escHtml(item.news_site)} · ${new Date(item.published_at).toLocaleDateString('fr-FR')}</small>`;
+      list.appendChild(el);
+    });
+    updateCarouselNews();
+  } catch {
+    list.innerHTML = '<div class="news-item">Impossible de charger les news.</div>';
+  }
+}
+
+function updateCarouselNews() {
+  const el = $('#cs-news');
+  if (!state.latestNews.length) return;
+  const item = state.latestNews[0];
+  el.innerHTML = `
+    <div class="slide-news-item">${escHtml(item.title)}</div>
+    <div class="slide-news-src">${escHtml(item.news_site)} · ${new Date(item.published_at).toLocaleDateString('fr-FR')}</div>
+  `;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// LANDSCAPE CAROUSEL
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+(function initCarousel() {
+  const track = $('#carouselTrack');
+  const dots = $$('#carouselDots .dot');
+  const SLIDES = 5;
+  let currentSlide = 0;
+  let autoTimer = null;
+  let isPaused = false;
+  let touchStartX = 0;
+
+  function goTo(idx) {
+    currentSlide = Math.max(0, Math.min(SLIDES - 1, idx));
+    track.scrollTo({ left: currentSlide * window.innerWidth, behavior: 'smooth' });
+    dots.forEach((d, i) => d.classList.toggle('active', i === currentSlide));
+  }
+
+  function startAuto() {
+    clearInterval(autoTimer);
+    autoTimer = setInterval(() => {
+      if (!isPaused) goTo((currentSlide + 1) % SLIDES);
+    }, 6000);
+  }
+
+  track.addEventListener('touchstart', e => {
+    touchStartX = e.touches[0].clientX;
+    isPaused = true;
+    clearTimeout(track._resumeTimer);
+  }, { passive: true });
+
+  track.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 40) {
+      if (dx < 0) goTo(currentSlide + 1);
+      else goTo(currentSlide - 1);
+    }
+    track._resumeTimer = setTimeout(() => { isPaused = false; }, 3000);
+  }, { passive: true });
+
+  // Sync scroll position → dots
+  track.addEventListener('scroll', () => {
+    const idx = Math.round(track.scrollLeft / (track.offsetWidth || window.innerWidth));
+    if (idx !== currentSlide) {
+      currentSlide = idx;
+      dots.forEach((d, i) => d.classList.toggle('active', i === currentSlide));
+    }
+  }, { passive: true });
+
+  startAuto();
+})();
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BUTTON BINDINGS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+$('#enableNotifBtn').addEventListener('click', async () => {
+  const ok = await ensureNotifications();
+  if (ok) scheduleAutoNotifs();
+});
+$('#testNotifBtn').addEventListener('click', () =>
+  sendNotif({ title: 'Morning Dashboard', body: 'Test notification OK ✓', delay: 5000, tag: 'test' })
+);
+$('#refreshBtn').addEventListener('click', () => { loadWeather(); loadNews(); });
+
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); state.deferredPrompt = e; });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// INIT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+loadScheduled();
+renderScheduledNotifs();
+
+Promise.all([registerSW(), loadWeather(), loadNews()]).then(() => {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    state.notificationReady = true;
+    setNotifUI('Notifications déjà autorisées ✓', true);
+    scheduleAutoNotifs();
+  }
+});
+</script>
 </body>
 </html>
